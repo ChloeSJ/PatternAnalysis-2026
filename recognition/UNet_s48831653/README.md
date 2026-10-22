@@ -1,0 +1,1 @@
+Data were provided by HipMRI Study for image segmentation - https://arxiv.org/abs/1505.04597
