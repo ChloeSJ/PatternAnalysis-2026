@@ -230,5 +230,3 @@ def get_dataloaders(batch_size=16, early_stop=False):
                             shuffle=False, num_workers=num_workers)
 
     return train_loader, val_loader, test_loader
-
-get_dataloaders()
