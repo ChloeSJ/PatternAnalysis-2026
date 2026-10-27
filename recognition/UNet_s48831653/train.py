@@ -136,7 +136,7 @@ def main():
     # Set up
     train_loader, val_loader, test_loader = dataset.get_dataloaders()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    num_epochs = 10
+    num_epochs = 20
     model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
     
     optimiser = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
@@ -168,10 +168,9 @@ def main():
             torch.cuda.synchronize()
         epoch_time = time.perf_counter() - epoch_start
         total_time += epoch_time
-        print(f"Epoch {e} elapsed time = {epoch_time:.3f}")
 
         # Report per channel dice
-        print(f"Epoch {e} dice:")
+        print(f"Epoch {e} validation dice per channel: (elapsed time = {epoch_time:.3f})")
         print(f"    C0 Background/Rectum: {all_channel_dice[0].item()}")
         print(f"    C1  Body/Soft Tissue: {all_channel_dice[1].item()}")
         print(f"    C2              Bone: {all_channel_dice[2].item()}")
