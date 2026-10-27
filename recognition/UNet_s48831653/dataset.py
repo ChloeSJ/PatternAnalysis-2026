@@ -5,6 +5,8 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from torchvision.transforms import v2
+from torchvision import tv_tensors
 
 import os
 import glob
@@ -157,8 +159,8 @@ class HipMRI2D_Dataset(Dataset):
         #Mask [H, W, C] -> [C, H, W]
         mask = mask.transpose((2, 0, 1))
 
-        image_tensor = torch.from_numpy(image)
-        mask_tensor = torch.from_numpy(mask)
+        image_tensor = tv_tensors.Image(torch.from_numpy(image).to(torch.float32))
+        mask_tensor = tv_tensors.Image(torch.from_numpy(mask).to(torch.float32))
 
         if self.transform:
             image_tensor, mask_tensor = self.transform(image_tensor, mask_tensor)
@@ -213,8 +215,15 @@ def get_dataloaders(batch_size=16, early_stop=False):
     image_val, mask_val = val_data["images"], val_data["masks"]
     image_test, mask_test = test_data["images"], test_data["masks"]
 
+    mri_transform = v2.Compose([
+    v2.RandomVerticalFlip(p=0.5),
+    v2.RandomRotation(degrees=(-10, 10)),
+    v2.RandomAffine(degrees=0, scale=(0.95, 1.05)),
+    v2.RandomApply([v2.ElasticTransform(alpha=35.0, sigma=5.0)], p=0.3)
+    ])
+    
     # Create datasets
-    train_dataset = HipMRI2D_Dataset(image_train, mask_train)
+    train_dataset = HipMRI2D_Dataset(image_train, mask_train, mri_transform)
     val_dataset = HipMRI2D_Dataset(image_val, mask_val)
     test_dataset = HipMRI2D_Dataset(image_test, mask_test)
 
