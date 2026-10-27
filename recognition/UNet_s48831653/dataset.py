@@ -69,7 +69,6 @@ def crop_2D(arr: np.ndarray):
     else:
         raise ValueError(f"Unexpected array dimension: {arr.ndim}")
 
-
 # Load 2D medical images
 def load_data_2D(imageNames, normImage=False, categorical=False,
         dtype=np.float32, getAffines=False, early_stop=False):
