@@ -139,8 +139,11 @@ def main():
     num_epochs = 10
     model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
     
-    lr = 0.001
-    optimiser = optim.Adam(model.parameters(), lr=lr)
+    optimiser = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
+
+    # alters learning rate by factor 0.1 for optimiser when validation dice
+    # doesn't increase for 2 epochs
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimiser, mode='max', factor=0.1, patience=2)
 
     best_dice = 0.0
     total_time = 0.0
@@ -158,6 +161,7 @@ def main():
         # training + validation
         train_loss[e] = train_epoch(model, train_loader, device, optimiser)
         all_channel_dice, prostate_dice, val_loss[e] = validate_epoch(model, val_loader, device)
+        scheduler.step(prostate_dice)
 
         # Report epoch time duration
         if torch.cuda.is_available():
