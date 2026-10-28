@@ -100,7 +100,10 @@ def main():
     print("Starting evaluation of test set:")
     _, _, test_loader = dataset.get_dataloaders()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
+    #save_path = "best_2DUnet.pth"
+    #model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
+    model = modules.CAN_2D().to(device)
+    save_path = "best_2DCAN.pth"
 
     # start timing
     if torch.cuda.is_available():
@@ -110,7 +113,7 @@ def main():
     start_time = time.perf_counter()
 
     # predict + save test cases
-    model.load_state_dict(torch.load("best_2DUnet.pth"))
+    model.load_state_dict(torch.load(save_path))
     avg_dice, prostate_dice = test(model, test_loader, device)
 
     # report testing duration, peak VRAM, and dice
