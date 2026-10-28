@@ -120,25 +120,31 @@ class CAN_2D(nn.Module):
                                      Conv_CAN(base_channel, base_channel))
 
         self.d1 = DilatedConv(base_channel, dilation=1)
-        self.d2 = DilatedConv(base_channel, dilation=2)
-        self.d4 = DilatedConv(base_channel, dilation=4)
-        self.d8 = DilatedConv(base_channel, dilation=8)
-        self.d16 = DilatedConv(base_channel, dilation=16)
+        self.d2 = DilatedConv(base_channel, dilation=1)
+        self.d3 = DilatedConv(base_channel, dilation=2)
+        self.d4 = DilatedConv(base_channel, dilation=2)
+        self.d5 = DilatedConv(base_channel, dilation=3)
+        self.d6 = DilatedConv(base_channel, dilation=5)
+        self.d7 = DilatedConv(base_channel, dilation=8)
+        self.d8 = DilatedConv(base_channel, dilation=16)
 
         self.smooth = DilatedConv(base_channel, dilation=1)
 
         # 1x1 conv then decrease no.channels to equal no. segmentation categories
         self.final = nn.Sequential(Conv_CAN(base_channel, base_channel),
-                                     nn.Conv2d(base_channel, out_channels))
+                                     nn.Conv2d(base_channel, out_channels, kernel_size=1))
 
 
     def forward(self, x):
         z = self.initial(x) # expand channels then 1x1 conv
         z = self.d1(z)
         z = self.d2(z)
+        z = self.d3(z)
         z = self.d4(z)
+        z = self.d5(z)
+        z = self.d6(z)
+        z = self.d7(z)
         z = self.d8(z)
-        z = self.d16(z)
         
         z = self.smooth(z)
 
