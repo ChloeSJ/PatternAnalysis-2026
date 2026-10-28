@@ -114,7 +114,7 @@ def validate_epoch(model, dataloader, device):
 
     return all_channel_dice, prostate_dice, val_loss
 
-def plot_loss_curves(train_loss, val_loss, num_epochs):
+def plot_loss_curves(train_loss, val_loss, num_epochs, lossplot_path):
     """
     Plots the training loss and validation loss over each epoch.
     """
@@ -128,7 +128,7 @@ def plot_loss_curves(train_loss, val_loss, num_epochs):
     plt.legend()
     plt.tight_layout()
     plt.grid(True)
-    plt.savefig("loss_plot.png", bbox_inches="tight", dpi=150)
+    plt.savefig(lossplot_path, bbox_inches="tight", dpi=150)
     plt.close() 
     return
 
@@ -137,8 +137,13 @@ def main():
     train_loader, val_loader, test_loader = dataset.get_dataloaders()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_epochs = 30
-    model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
-    
+    #model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
+    #checkpoint_path = "best_2DUnet.pth"
+    #lossplot_path = "2DUnet_loss_plot.png"
+    model = modules.CAN_2D().to(device)
+    checkpoint_path = "best_2DCAN.pth"
+    lossplot_path = "2DCAN_loss_plot.png"
+
     optimiser = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
 
     # alters learning rate by factor 0.1 for optimiser when validation dice
@@ -180,7 +185,7 @@ def main():
         # save model if prostate dice improved
         if prostate_dice > best_dice:
             best_dice = prostate_dice
-            torch.save(model.state_dict(), "best_2DUnet.pth")
+            torch.save(model.state_dict(), checkpoint_path)
             print(f"New best model saved: prostate DSC = {prostate_dice:.4f}, epoch = {e}")
 
     # Report elapsed time and peak VRAM for training + validation
@@ -191,7 +196,7 @@ def main():
     print(f"Average Training and Validation Time = {(total_time/num_epochs):.3f}s per epoch")
     print(f"Peak VRAM during Training and Validation = {peak_vram_gb:.4f} GB")
 
-    plot_loss_curves(train_loss, val_loss, num_epochs)
+    plot_loss_curves(train_loss, val_loss, num_epochs, lossplot_path)
     return
 
 if __name__ == "__main__":

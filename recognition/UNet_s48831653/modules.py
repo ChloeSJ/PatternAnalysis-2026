@@ -83,3 +83,64 @@ class UNet_2D(nn.Module):
         u4 = self.up4(u3, d1)
         
         return self.finalConv(u4) # Output has no. channels = no. categories
+
+class DilatedConv(nn.Module):
+    """
+    
+    """
+    def __init__(self, channels, dilation):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, padding=dilation, dilation=dilation, bias=False),
+            nn.InstanceNorm2d(channels), #smaller sample resolutions -> use instance norm
+            nn.LeakyReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.conv(x)
+
+class Conv_CAN(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
+            nn.InstanceNorm2d(out_channels),
+            nn.LeakyReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.conv(x)
+
+class CAN_2D(nn.Module):
+    def __init__(self, in_channels=1, out_channels=5):
+        super().__init__()
+        base_channel = 64
+
+        self.initial = nn.Sequential(Conv_CAN(in_channels, base_channel),
+                                     Conv_CAN(base_channel, base_channel))
+
+        self.d1 = DilatedConv(base_channel, dilation=1)
+        self.d2 = DilatedConv(base_channel, dilation=2)
+        self.d4 = DilatedConv(base_channel, dilation=4)
+        self.d8 = DilatedConv(base_channel, dilation=8)
+        self.d16 = DilatedConv(base_channel, dilation=16)
+
+        self.smooth = DilatedConv(base_channel, dilation=1)
+
+        # 1x1 conv then decrease no.channels to equal no. segmentation categories
+        self.final = nn.Sequential(Conv_CAN(base_channel, base_channel),
+                                     nn.Conv2d(base_channel, out_channels))
+
+
+    def forward(self, x):
+        z = self.initial(x) # expand channels then 1x1 conv
+        z = self.d1(z)
+        z = self.d2(z)
+        z = self.d4(z)
+        z = self.d8(z)
+        z = self.d16(z)
+        
+        z = self.smooth(z)
+
+        # 1x1 conv then decrease no.channels to equal no. segmentation categories
+        return self.final(z)
