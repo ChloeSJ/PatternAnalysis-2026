@@ -219,7 +219,6 @@ def get_dataloaders(batch_size=16, early_stop=False):
     v2.RandomVerticalFlip(p=0.5),
     v2.RandomRotation(degrees=(-10, 10)),
     v2.RandomAffine(degrees=0, scale=(0.95, 1.05)),
-    v2.RandomApply([v2.ElasticTransform(alpha=35.0, sigma=5.0)], p=0.3)
     ])
     
     # Create datasets
@@ -228,7 +227,7 @@ def get_dataloaders(batch_size=16, early_stop=False):
     test_dataset = HipMRI2D_Dataset(image_test, mask_test)
 
     # Create dataloaders
-    num_workers = 4
+    num_workers = 4 
     #todo drop_last=True if number of images is not divisible by batch_size
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
                             shuffle=True, num_workers=num_workers, drop_last=True)
