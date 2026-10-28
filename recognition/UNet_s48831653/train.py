@@ -186,6 +186,7 @@ def main():
         if prostate_dice > best_dice:
             best_dice = prostate_dice
             torch.save(model.state_dict(), checkpoint_path)
+            torch.save(model.state_dict(), checkpoint_path)
             print(f"New best model saved: prostate DSC = {prostate_dice:.4f}, epoch = {e}")
 
     # Report elapsed time and peak VRAM for training + validation
@@ -196,8 +197,12 @@ def main():
     print(f"Average Training and Validation Time = {(total_time/num_epochs):.3f}s per epoch")
     print(f"Peak VRAM during Training and Validation = {peak_vram_gb:.4f} GB")
 
-    plot_loss_curves(train_loss, val_loss, num_epochs, lossplot_path)
+    plot_loss_curves(train_loss, val_loss, num_epochs, lossplot_path, lossplot_path)
     return
+
+if __name__ == "__main__":
+    print("Running train.py")
+    main()
 
 if __name__ == "__main__":
     main()
