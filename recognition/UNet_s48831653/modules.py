@@ -4,15 +4,16 @@ import torch.nn.functional as F
 
 class Conv(nn.Module):
     """
-    Conv2d -> BatchNorm2d -> ReLU -> Conv2d -> BatchNorm2d -> ReLU
+    Conv2d -> BatchNorm2d -> ReLU -> Dropout -> Conv2d -> BatchNorm2d -> ReLU
     """
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, drop_rate=0.0):
         super().__init__()
         self.block = nn.Sequential(
             # alter channel count
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
+            nn.Dropout2d(p=drop_rate),
             # refine feature extraction
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
@@ -24,14 +25,14 @@ class Conv(nn.Module):
 
 class UpConv(nn.Module):
     """
-    upConv -> +skip -> Conv2d -> BatchNorm2d -> ReLU -> Conv2d -> BatchNorm2d -> ReLU
+    upConv -> +skip -> Conv2d -> BatchNorm2d -> ReLU -> Dropout -> Conv2d -> BatchNorm2d -> ReLU
     """
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, drop_rate=0.0):
         super().__init__()
         # Expand dimensions
         self.upConv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
         # Decrease channel count 
-        self.block = Conv(out_channels*2, out_channels) #*2 since channels are doubled by cat
+        self.block = Conv(out_channels*2, out_channels, drop_rate=drop_rate) #*2 since channels are doubled by cat
 
     def forward(self, x, skip):
         x = self.upConv(x)
@@ -55,11 +56,11 @@ class UNet_2D(nn.Module):
         self.down1 = Conv(in_channels, 64)
         self.down2 = Conv(64, 128)
         self.down3 = Conv(128, 256)
-        self.down4 = Conv(256, 512)
+        self.down4 = Conv(256, 512, drop_rate=0.2)
 
-        self.bottleneck = Conv(512, 1024)
+        self.bottleneck = Conv(512, 1024, drop_rate=0.2)
 
-        self.up1 = UpConv(1024, 512)
+        self.up1 = UpConv(1024, 512, drop_rate=0.2)
         self.up2 = UpConv(512, 256)
         self.up3 = UpConv(256, 128)
         self.up4 = UpConv(128, 64)
