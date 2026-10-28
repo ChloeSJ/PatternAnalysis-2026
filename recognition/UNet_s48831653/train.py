@@ -136,14 +136,14 @@ def main():
     # Set up
     train_loader, val_loader, test_loader = dataset.get_dataloaders()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    num_epochs = 20
+    num_epochs = 30
     model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
     
     optimiser = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
 
     # alters learning rate by factor 0.1 for optimiser when validation dice
     # doesn't increase for 2 epochs
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimiser, mode='max', factor=0.1, patience=2)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimiser, mode='max', factor=0.1, patience=4)
 
     best_dice = 0.0
     total_time = 0.0
@@ -193,3 +193,6 @@ def main():
 
     plot_loss_curves(train_loss, val_loss, num_epochs)
     return
+
+if __name__ == "__main__":
+    main()
