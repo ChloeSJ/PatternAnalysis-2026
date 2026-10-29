@@ -30,9 +30,9 @@ def soft_dice_loss(data, mask, eps=1e-6):
     # +eps is stabilisation for empty slices
     dice = (2.0 * intersection + eps) / (total + eps)
     avg_loss = 1.0 - dice.mean()
-    return avg_loss, dice[4]
+    return avg_loss
 
-def loss(data, mask, bce_weight=0.5):
+def loss(data, mask, bce_weight=0.3):
     """Combination of BCE and average dice loss used for training and validation.
 
     data (tensor): [B, C, H, W] shape containing the model's predictions
@@ -42,8 +42,8 @@ def loss(data, mask, bce_weight=0.5):
     # take sigmoid of data and compute BCE between data and mask
     bce_loss = F.binary_cross_entropy_with_logits(data, mask)
     # take sigmoid of data and compute soft dice loss for the batch of slices
-    avg_dice, prostate_dice = soft_dice_loss(data, mask)
-    return bce_loss * bce_weight + (1-bce_weight) * avg_dice, prostate_dice
+    avg_dice = soft_dice_loss(data, mask)
+    return bce_loss * bce_weight + (1-bce_weight) * avg_dice
 
 def hard_dice_loss(data, mask, threshold=0.5):
     """
@@ -72,7 +72,8 @@ def train_epoch(model, dataloader, device, optimiser):
     """
     model.train()
     running_loss = 0.0
-    running_prostate_loss = 0.0
+    total_intersection = torch.zeros(5, device=device)
+    total_pixels = torch.zeros(5, device=device)
 
     for images, masks in dataloader:
         images, masks = images.to(device), masks.to(device)
@@ -81,24 +82,27 @@ def train_epoch(model, dataloader, device, optimiser):
         probabilities = model(images)
 
         # loss per batch
-        batch_loss, prostate_loss = loss(probabilities, masks)
+        batch_loss = loss(probabilities, masks)
         batch_loss.backward()
         optimiser.step()
 
+        intersection, total = hard_dice_loss(probabilities, masks)
+        total_intersection += intersection.sum(dim=0)
+        total_pixels += total.sum(dim=0)
+
         # extract loss value, scale by batch size
         running_loss += batch_loss.item() * images.size(0)
-        running_prostate_loss += prostate_loss.item() * images.size(0)
     avg_running_loss = running_loss / len(dataloader.dataset) # average (BCE + Dice) loss per slice
-    avg_prostate_loss = running_prostate_loss / len(dataloader.dataset) #average prostate loss per slice
-    return avg_running_loss, avg_prostate_loss
+    eps = 1e-6
+    channel_dice = (2.0 * total_intersection + eps) / (total_pixels + eps)
+    return avg_running_loss, channel_dice[4].item()
 
 def validate_epoch(model, dataloader, device):
     """
     Evaluates a model prediction and compares to the ground truth with dice loss
     """
     model.eval()
-    running_batch_loss = 0.0
-    running_prostate_loss = 0.0
+    running_batch_loss = 0
     total_intersection = torch.zeros(5, device=device)
     total_pixels = torch.zeros(5, device=device)
 
@@ -108,9 +112,8 @@ def validate_epoch(model, dataloader, device):
 
             probabilities = model(images)
             # batch's average (BCE + Dice) loss
-            batch_loss, prostate_loss = loss(probabilities, masks)
+            batch_loss = loss(probabilities, masks)
             running_batch_loss += batch_loss.item() * images.size(0)
-            running_prostate_loss += prostate_loss.item() * images.size(0)
 
             # batch's ground truth and prediction intersection and total values
             intersection, total = hard_dice_loss(probabilities, masks)
@@ -119,13 +122,12 @@ def validate_epoch(model, dataloader, device):
 
     # average (BCE + Dice) loss per slice
     avg_loss = running_batch_loss / len(dataloader.dataset)
-    avg_prostate_loss = running_prostate_loss / len(dataloader.dataset)
 
     # dice
     eps = 1e-6 # eps for gradient stablisation
     channel_dice = (2.0 * total_intersection + eps) / (total_pixels + eps)
     channel_iou = (total_intersection + eps) / (total_pixels - total_intersection + eps)
-    return channel_dice, channel_iou, avg_loss, avg_prostate_loss
+    return channel_dice, channel_iou, avg_loss
 
 def plot_loss_curves(train_loss, val_loss, train_prostate_loss, val_prostate_loss, num_epochs, lossplot_path):
     """
@@ -157,6 +159,17 @@ def plot_loss_curves(train_loss, val_loss, train_prostate_loss, val_prostate_los
     plt.close(fig)
     return
 
+def count_parameters(model):
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(
+        p.numel() for p in model.parameters() if p.requires_grad
+    )
+
+    print(f"Total parameters: {total_params:,}")
+    print(f"Trainable parameters: {trainable_params:,}")
+
+    return total_params, trainable_params
+
 def train_and_validate(UNet=True, num_epochs=30):
     # Set up
     train_loader, val_loader, test_loader = dataset.get_dataloaders()
@@ -172,7 +185,7 @@ def train_and_validate(UNet=True, num_epochs=30):
         checkpoint_path = "best_2DCAN.pth"
         lossplot_path = "2DCAN_loss_plot.png"
         print("Training 2D CAN...")
-
+    count_parameters(model)
     optimiser = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
 
     # alters learning rate by factor 0.1 for optimiser when validation dice doesn't increase
@@ -195,10 +208,9 @@ def train_and_validate(UNet=True, num_epochs=30):
 
         # training + validation
         train_loss[e], train_prostate_dice[e] = train_epoch(model, train_loader, device, optimiser)
-        all_channel_dice, all_channel_iou, val_loss[e], val_prostate_dice[e] = validate_epoch(model, val_loader, device)
-
-        prostate_dice = all_channel_dice[4].item()
-        scheduler.step(prostate_dice)
+        all_channel_dice, all_channel_iou, val_loss[e] = validate_epoch(model, val_loader, device)
+        val_prostate_dice[e] = all_channel_dice[4].item()
+        scheduler.step(val_prostate_dice[e])
 
         # End timing current epoch
         if torch.cuda.is_available():
@@ -223,11 +235,11 @@ def train_and_validate(UNet=True, num_epochs=30):
         print(f"        C4          Prostate: {all_channel_iou[4].item()}\n")
 
         # save model if prostate dice improved
-        if prostate_dice > best_dice:
-            best_dice = prostate_dice
+        if val_prostate_dice[e] > best_dice:
+            best_dice = val_prostate_dice[e]
             torch.save(model.state_dict(), checkpoint_path)
             torch.save(model.state_dict(), checkpoint_path)
-            print(f"NEW MODEL SAVED: prostate dice = {prostate_dice:.4f}\n")
+            print(f"NEW MODEL SAVED: prostate dice = {val_prostate_dice[e]:.4f}\n")
 
     # Report elapsed time and peak VRAM for training + validation
     if torch.cuda.is_available():
@@ -310,7 +322,7 @@ def test(model, dataloader, device, image_name, image_directory):
             intersection, total = hard_dice_loss(probabilities, masks)
             total_intersection += intersection.sum(dim=0)
             total_pixels += total.sum(dim=0)
-            preds = (probabilities >= 0.5).float()
+            preds = (torch.sigmoid(probabilities) >= 0.5).float()
 
             # Save result images
             for j in range(images.size(0)):
@@ -327,5 +339,5 @@ def test(model, dataloader, device, image_name, image_directory):
     return channel_dice, channel_iou
 
 if __name__ == "__main__":
-    #train_and_validate(UNet=True, num_epochs=20) # train 2D U-Net
+    train_and_validate(UNet=True, num_epochs=20) # train 2D U-Net
     train_and_validate(UNet=False, num_epochs=20) # train 2D CAN
