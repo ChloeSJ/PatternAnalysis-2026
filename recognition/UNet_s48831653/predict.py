@@ -7,6 +7,9 @@ import train
 
 def predict(UNet=True):
     """
+    Prepare the dataloaders, model, optimiser and scheduler. Evaluate's the
+    model's predictions for the test dataset, saves the resulting images and
+    reports on the model's performance.
     """
 
     # Set up

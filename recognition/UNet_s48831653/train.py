@@ -175,7 +175,7 @@ def count_parameters(model):
 def train_and_validate(UNet=True, num_epochs=30):
     """
     Prepare the dataloaders, model, optimiser and scheduler. Trains and validates
-    the model, reporting per epoch and overall results.
+    the model, reporting performance per epoch and overall results.
     """
     # Set up
     train_loader, val_loader, test_loader = dataset.get_dataloaders()
