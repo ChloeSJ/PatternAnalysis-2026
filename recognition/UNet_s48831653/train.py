@@ -160,6 +160,9 @@ def plot_loss_curves(train_loss, val_loss, train_prostate_loss, val_prostate_los
     return
 
 def count_parameters(model):
+    """
+    Print the number of model parameters.
+    """
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(
         p.numel() for p in model.parameters() if p.requires_grad
@@ -167,10 +170,13 @@ def count_parameters(model):
 
     print(f"Total parameters: {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")
-
-    return total_params, trainable_params
+    return
 
 def train_and_validate(UNet=True, num_epochs=30):
+    """
+    Prepare the dataloaders, model, optimiser and scheduler. Trains and validates
+    the model, reporting per epoch and overall results.
+    """
     # Set up
     train_loader, val_loader, test_loader = dataset.get_dataloaders()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -305,6 +311,10 @@ def save_prediction_image(img, gt_masks, pred_masks, i, image_name, image_direct
     return
 
 def test(model, dataloader, device, image_name, image_directory):
+    """
+    Determines model predictions of the given test set, reports on and saves
+    result images in the given image_directory.
+    """
     model.eval()
     total_intersection = torch.zeros(5, device=device)
     total_pixels = torch.zeros(5, device=device)

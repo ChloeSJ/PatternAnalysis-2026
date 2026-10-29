@@ -86,13 +86,13 @@ class UNet_2D(nn.Module):
 
 class DilatedConv(nn.Module):
     """
-    
+    Performs a dilated convolution -> InstanceNorm -> LeakyReLU
     """
     def __init__(self, channels, dilation):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(channels, channels, kernel_size=3, padding=dilation, dilation=dilation, bias=False),
-            nn.InstanceNorm2d(channels), #smaller sample resolutions -> use instance norm
+            nn.InstanceNorm2d(channels),
             nn.LeakyReLU(inplace=True)
         )
 
@@ -100,6 +100,9 @@ class DilatedConv(nn.Module):
         return self.conv(x)
 
 class Conv_CAN(nn.Module):
+    """
+    Conv -> InstanceNorm -> leakyReLU
+    """
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.conv = nn.Sequential(
@@ -112,6 +115,9 @@ class Conv_CAN(nn.Module):
         return self.conv(x)
 
 class CAN_2D(nn.Module):
+    """
+    2D Convolution Aggregate model with 9 dilation layers (1, 1, 2, 2, 3, 5, 8, 16)
+    """
     def __init__(self, in_channels=1, out_channels=5):
         super().__init__()
         base_channel = 64
@@ -136,7 +142,8 @@ class CAN_2D(nn.Module):
 
 
     def forward(self, x):
-        z = self.initial(x) # expand channels then 1x1 conv
+        z = self.initial(x) # expand channels then
+        # dilations
         z = self.d1(z)
         z = self.d2(z)
         z = self.d3(z)
@@ -148,5 +155,5 @@ class CAN_2D(nn.Module):
         
         z = self.smooth(z)
 
-        # 1x1 conv then decrease no.channels to equal no. segmentation categories
+        # Decrease no.channels to equal no. segmentation categories
         return self.final(z)

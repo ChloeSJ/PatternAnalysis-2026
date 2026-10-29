@@ -6,6 +6,9 @@ import dataset
 import train
 
 def predict(UNet=True):
+    """
+    """
+
     # Set up
     _, _, test_loader = dataset.get_dataloaders()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
