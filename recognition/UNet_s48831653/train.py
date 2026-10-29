@@ -280,8 +280,18 @@ def save_prediction_image(img, gt_masks, pred_masks, i, image_name, image_direct
     error_map[(pred_prostate == 0) & (gt_prostate == 1)]  = [0, 0, 1] # False negative (Blue)
     error_map[(pred_prostate == 1) & (gt_prostate == 1)] = [0, 1, 0] # True positive (Green)
 
+    tp = np.sum((pred_prostate == 1) & (gt_prostate == 1))
+    fp = np.sum((pred_prostate == 1) & (gt_prostate == 0))
+    fn = np.sum((pred_prostate == 0) & (gt_prostate == 1))
+    
+    eps = + 1e-6
+    dice = (2*tp + eps)/(2*tp + fp + fn + eps)
+    iou = (tp + eps)/(tp + fp + fn + eps)
+
     # Construct image
     fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+    fig.suptitle(f"Dice={dice:.4f}, IOU={iou:.4g}")
+
     # original MRI slice
     axes[0].imshow(img, cmap="gray")
     axes[0].set_title(f"Batch {i:03d}: Input MRI Slice")
