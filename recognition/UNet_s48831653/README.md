@@ -1,9 +1,12 @@
 # Evaluation of 2D U-Net vs 2D Convolutional Aggregate Network performance and resource use for the segmentation of HipMRI scans for targeted radiation therapy of the prostate
 Data were provided by HipMRI Study for image segmentation - https://arxiv.org/abs/1505.04597
 
-## Overview
-A 2D U-Net and 2D convolutional aggregate network (CAN) have been implemented to aid in the segmentation of the prostate in HipMRI scans for the purpose of targeted radiation therapy.
-#### 2D U-Net Explanation and Justification of Structure:
+## Overview of the Model
+A 2D U-Net and 2D convolutional aggregate network (CAN) have been implemented to aid in the segmentation of the prostate in HipMRI scans for the purpose of targeted radiation therapy. Due to the risks associated with both under- and over-contouring, it is of interest to compare the prostate segmentation accuracy and the resource requirements of both models to determine which is more appropriate for clinical use.
+
+**todo** description of file structure and how to run
+
+### 2D U-Net Explanation and Justification of Structure:
 The 2D U-Net consists of an encoder and decoder, each with 4 convolution blocks. The convolution block contains 2 3x3 convolutions, the first to alter the number of channels, and the second to refine feature extraction. BatchNorm is used after each convolution since the data is dense and processed in batches of 16. As each sample is normalised, convolutions are performed without bias to prevent creations of redundant variables. ReLU is performed in place after each normalisation to reduce memory consumption. For convolution blocks with high out_channel>512, dropout=0.2 is set to reduce overfitting during training.
 
 Each encoder block is followed by maxPool, reducing the height and width dimensions by 2. As such, each sample is reduced to height and width dimensions (16, 8). The bottleneck performs a final channel expanding convolution block such that each sample has 1024 channels.
@@ -11,10 +14,19 @@ Each encoder block is followed by maxPool, reducing the height and width dimensi
 The 4 decoder blocks perform a transpose convolution, expanding the sample's height and width by 2, before concatenating the equivalent sample from the encoder leve. This is followed by the convolution block, halving the number of channels. A final 1x1 convolution is performed so that the output has the same number of channels as there are segmentation categories.
 
 **U-Net Model Structure:**
-![alt text](UNet.png)
+![alt text](Figures/UNet.png)
 
-#### 2D CAN Explanation and Justification of Structure:
-The 2D CAN **todo description of algorithm**
+### 2D CAN Explanation and Justification of Structure:
+The 2D CAN initially performed two 3x3 convolutions to expand the channel size. This is followed by eight dilated convolutions with increasing dilation rates (1, 1, 2, 2, 3, 5, 8, 16), 
+
+
+- initial convolution to expand channels to 64
+- dilate convolution uses instance norm to allow smaller batch sizes if necessar, and leaky relu due to sparse data from dilation
+- dilations (1, 1, 2, 2, 3, 5, 8, 16) used to extract a some overall features and focus on the finer details since the prostate is a small component of the HipMRI samples
+- 3x3 conv performed to smooth results and final 1x1 convolution to output with required number of channels as number of categories
+
+
+**todo description of algorithm**
 **todo diagram**
 
 ## Dependencies
@@ -32,42 +44,63 @@ The results discussed in this report were produced without setting seed. If desi
 ## Example inputs, outputs, and visual plots of your algorithm
 **todo**
 
-## Description of any specific pre-processing used, with references if any
-**todo**
-**todo** justify training, validation, testing splits of the data
+## Data Preprocessing
+To prevent data-leakage, all MRI slices belonging to the same patient are strictly assigned to the same data split, as misleading results would be produced if the same anatomy were present across sets. Specifically, training was performed on slices from patients 4 to 35, validation on patients 36 to 39, and testing on patients 40-42.
 
-## Investigation of the Open Research Dilemma
+All MRI image data was normalised upon loading as specified in the project guidelines, and converted to dimensions [N, H, W]. Similarly, ground truth segmentation masks were converted to [N, H, W, C]. Note, a subset of the data was loaded with height and width (256, 144) where majority were (256, 128). The larger dimensions were cropped equally at the left and right sides, such that all images were (256, 128) which is most suitable for the network operations.
+
+In the construction of PyTorch DataLoaders for this data, the training DataLoader set drop_last=True where the validation and testing loaders didn't to ensure consistent batch sizes for stable normalisation and to avoid overweighting of samples in a smaller batch size. Additionally, the training dataset was assigned a custom TorchVision transformation that included random vertical flipping, slight rotation, and slight scaling with RandomAffine, to reduce overfitting of the data, by training on plausible anatomical variations.
+
+
+
+## Training And Validation
+**todo** justify training+validation process
+
+|                                                   | 2D U-Net | 2D CAN |
+| -------- | -------- | -------- |
+| Total Number of Trainable Parmeters               | 31,036,741 | 406,405  |
+| Peak Training/Validation GPU VRAM (GB)            | 3.1845     | 3.5261   |
+| Average Training/Validation Epoch Duration (s)    | 47.284     | 49.729s  |
+| Saved Model's Validation Prostate Dice            | 0.899072   | 0.906043 |
+
+### Training and Validation Loss and Prostate Segmentation Dice per Epoch
+**2D UNet:**
+![alt text](Figures/2DUnet_loss_plot.png)
+
+**2D CAN:**
+![alt text](Figures/2DCAN_loss_plot.png)
+
+## Testing Results
+|                                          | 2D U-Net | 2D CAN |
+| -------- | -------- | -------- |
+| Peak Testing GPU VRAM (GB)               | 1.1256     | 0.4079   |
+| Average Sample Evaluation Duration (s)   | 0.402137   | 0.397704 |
+| Average Testing Dice                     | 0.882169   | 0.878068 |
+
+**todo**: prediction format, location, justification
+
+## Discussion of Results
 **todo**
-quantitative benchmarking of your model against the baseline under identical evaluation splits
-- resource profiling table documenting computational efficiency (peak GPU VRAM, parameter count, inference runtime/latency)
+- data points are all comparable except CAN has significantly less trainable parameters and produces the same results
+- CAN has more stable dice value during training Unet has significant variations betwene training and validation dice
+- only requires 5 epochs versus unet validation loss stabilises at 18 even though training stabilised after 3
+
 - in depth qualitative error autopsies analysing 3-5 representative failure cases from the dataset (diagnosing root triggers + failure modes)
-- actionable engineering recommendation + trade off synthesis for your project manager (transformations?)
-
-
-## Decisions regarding dataloading:
-- Patient-level splitting (patient data is present in only one of training/validation/testing) of provided data is preserved by loading pre-defined 2D sets
-- Image datasets are normalised upon loading as specified in data pipeline guidelines
-- Mask datasets are specified as categorical upon loading, converted to [N, H, W, C] vs image sets which are converted to [N, H, W]
-- (256, 144) sized images were cropped to (256, 128) so that all images are of the same size, 128 is a power of 2 suitable for U-Net convolution
-- drop_last set to True for the training DataLoader for consistent batch sizes to avoid overweighting the final samples and for stable normalisation
-
-todo: num_workers value, pre-fetch factor, persistant worker, transformations
-
-## Decisions regarding loss calculation:
-- Combination of weighted binary cross entropy + dice used
-
-## Decisions regarding training + validation:
-- 
+- actionable engineering recommendation + trade off synthesis for your project manager
 
 
 ## Artificial Intelligence Usage Disclosure:
 Gemini used:
 - for understanding Nifti loading functions provided in the task
-- in data_preprocess() for locally saving ndarrays produced by load_data_2D() and accessing this saved data in get_dataloaders()
-- for crop2D() to resize (256, 144) images to (256, 128)
-- to confirm convolution input/output channel counts for 2D U-Net modules
+- in data_preprocess() for locally saving ndarrays produced by load_data_2D() and accessing this saved data in get_dataloaders() - validated by successfull saving and loading
+- for crop2D() in dataset.py to resize (256, 144) images to (256, 128) - validated by rewriting generated code and runtime errors stopped after implementation
+- in mri_transform to suggest rotation and affine values that would produce anatomically plausible samples
+- to confirm understanding of convolution input/output channel counts for 2D U-Net modules
 - suggested use of F.interpolate in UpConv module in forward() for matching sample shapes
-
+- suggested initial CAN dilation values (1, 2, 4, 8, 16) which was altered to focus on finer sample details
+- to write count_parameters() in train.py - validated by inspecting the function logic, researching the functions/variables used, and the plausible output
+- to record torch execution time and peak VRAM - verified by confirming the logic and researching the variables used
+- to construct save_prediction_images(). Specifically, constructing the colour map, extracting the relevant maps in test() and demonstrating how to plot images in black and white, by colourmap or RGB, with matplotlib.pyplot - verified by rewriting of logic, researching variables used and successful result images
 
 
 ## Feasibility Review: 2D vs 3D U-Net for HipMRI prostate segmentation
