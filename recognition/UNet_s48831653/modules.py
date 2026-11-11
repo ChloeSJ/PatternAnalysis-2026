@@ -118,7 +118,7 @@ class CAN_2D(nn.Module):
     """
     2D Convolution Aggregate model with 9 dilation layers (1, 1, 2, 2, 3, 5, 8, 16)
     """
-    def __init__(self, in_channels=1, out_channels=5):
+    def __init__(self, in_channels=1, out_channels=6):
         super().__init__()
         base_channel = 64
 

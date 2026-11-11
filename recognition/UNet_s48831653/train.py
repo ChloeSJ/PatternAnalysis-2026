@@ -70,10 +70,11 @@ def train_epoch(model, dataloader, device, optimiser):
     """
     Execute one epoch of training for the given model.
     """
+    
     model.train()
     running_loss = 0.0
-    total_intersection = torch.zeros(5, device=device)
-    total_pixels = torch.zeros(5, device=device)
+    total_intersection = torch.zeros(6, device=device)
+    total_pixels = torch.zeros(6, device=device)
 
     for images, masks in dataloader:
         images, masks = images.to(device), masks.to(device)
@@ -95,7 +96,7 @@ def train_epoch(model, dataloader, device, optimiser):
     avg_running_loss = running_loss / len(dataloader.dataset) # average (BCE + Dice) loss per slice
     eps = 1e-6
     channel_dice = (2.0 * total_intersection + eps) / (total_pixels + eps)
-    return avg_running_loss, channel_dice[4].item()
+    return avg_running_loss, channel_dice[5].item()
 
 def validate_epoch(model, dataloader, device):
     """
@@ -103,8 +104,8 @@ def validate_epoch(model, dataloader, device):
     """
     model.eval()
     running_batch_loss = 0
-    total_intersection = torch.zeros(5, device=device)
-    total_pixels = torch.zeros(5, device=device)
+    total_intersection = torch.zeros(6, device=device)
+    total_pixels = torch.zeros(6, device=device)
 
     with torch.no_grad():
         for images, masks in dataloader:
@@ -182,7 +183,7 @@ def train_and_validate(UNet=True, num_epochs=30):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if UNet:
-        model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
+        model = modules.UNet_2D(in_channels=1, num_categories=6).to(device)
         checkpoint_path = "best_2DUnet.pth"
         lossplot_path = "2DUnet_loss_plot.png"
         print("Training 2D UNet...")
@@ -215,7 +216,7 @@ def train_and_validate(UNet=True, num_epochs=30):
         # training + validation
         train_loss[e], train_prostate_dice[e] = train_epoch(model, train_loader, device, optimiser)
         all_channel_dice, all_channel_iou, val_loss[e] = validate_epoch(model, val_loader, device)
-        val_prostate_dice[e] = all_channel_dice[4].item()
+        val_prostate_dice[e] = all_channel_dice[5].item()
         scheduler.step(val_prostate_dice[e])
 
         # End timing current epoch
@@ -228,17 +229,19 @@ def train_and_validate(UNet=True, num_epochs=30):
         print(f"Epoch {e+1}:")
         print(f"    Elapsed time = {epoch_time:.3f}")
         print(f"    DICE VALUES...")
-        print(f"        C0 Background/Rectum: {all_channel_dice[0].item()}")
-        print(f"        C1  Body/Soft Tissue: {all_channel_dice[1].item()}")
-        print(f"        C2              Bone: {all_channel_dice[2].item()}")
-        print(f"        C3           Bladder: {all_channel_dice[3].item()}")
-        print(f"        C4          Prostate: {all_channel_dice[4].item()}")
+        print(f"        C0       Background: {all_channel_dice[0].item()}")
+        print(f"        C1 Body/Soft Tissue: {all_channel_dice[1].item()}")
+        print(f"        C2             Bone: {all_channel_dice[2].item()}")
+        print(f"        C3          Bladder: {all_channel_dice[3].item()}")
+        print(f"        C4           Rectum: {all_channel_dice[4].item()}")
+        print(f"        C5         Prostate: {all_channel_dice[5].item()}")
         print(f"    IOU VALUES...")
-        print(f"        C0 Background/Rectum: {all_channel_iou[0].item()}")
-        print(f"        C1  Body/Soft Tissue: {all_channel_iou[1].item()}")
-        print(f"        C2              Bone: {all_channel_iou[2].item()}")
-        print(f"        C3           Bladder: {all_channel_iou[3].item()}")
-        print(f"        C4          Prostate: {all_channel_iou[4].item()}\n")
+        print(f"        C0       Background: {all_channel_iou[0].item()}")
+        print(f"        C1 Body/Soft Tissue: {all_channel_iou[1].item()}")
+        print(f"        C2             Bone: {all_channel_iou[2].item()}")
+        print(f"        C3          Bladder: {all_channel_iou[3].item()}")
+        print(f"        C4           Rectum: {all_channel_iou[4].item()}")
+        print(f"        C5         Prostate: {all_channel_iou[5].item()}\n")
 
         # save model if prostate dice improved
         if val_prostate_dice[e] > best_dice:
@@ -265,7 +268,7 @@ def save_prediction_image(img, gt_masks, pred_masks, i, image_name, image_direct
     segmentation and the corresponding error map.
     """
     # assign colours to channels
-    label_colours = ["black", "green", "brown", "cyan", "red"]
+    label_colours = ["black", "green", "brown", "cyan", "red", "yellow"]
     label_cmap = ListedColormap(label_colours)
 
     # Retrieve map of the segmented values
@@ -273,8 +276,8 @@ def save_prediction_image(img, gt_masks, pred_masks, i, image_name, image_direct
     pred_map = np.argmax(pred_masks, axis=0)
 
     # Construct RGB error map for prostate segmentation
-    gt_prostate = gt_masks[4]
-    pred_prostate = pred_masks[4]
+    gt_prostate = gt_masks[5]
+    pred_prostate = pred_masks[5]
     error_map = np.zeros((*gt_map.shape, 3))
     error_map[(pred_prostate == 1) & (gt_prostate == 0)]  = [1, 0, 0] # False positive (Red)
     error_map[(pred_prostate == 0) & (gt_prostate == 1)]  = [0, 0, 1] # False negative (Blue)
@@ -298,12 +301,12 @@ def save_prediction_image(img, gt_masks, pred_masks, i, image_name, image_direct
     axes[0].axis("off")
 
     # Ground Truth Segmentation Map
-    axes[1].imshow(gt_map, cmap=label_cmap, vmin=0, vmax=4)
+    axes[1].imshow(gt_map, cmap=label_cmap, vmin=0, vmax=5)
     axes[1].set_title("Ground Truth Mask")
     axes[1].axis("off")
 
     #  Model Predicted Segmentation Map
-    axes[2].imshow(pred_map, cmap=label_cmap, vmin=0, vmax=4)
+    axes[2].imshow(pred_map, cmap=label_cmap, vmin=0, vmax=5)
     axes[2].set_title(f"Predicted Mask ({i:03d})")
     axes[2].axis("off")
 
@@ -325,9 +328,10 @@ def test(model, dataloader, device, image_name, image_directory):
     Determines model predictions of the given test set, reports on and saves
     result images in the given image_directory.
     """
+
     model.eval()
-    total_intersection = torch.zeros(5, device=device)
-    total_pixels = torch.zeros(5, device=device)
+    total_intersection = torch.zeros(6, device=device)
+    total_pixels = torch.zeros(6, device=device)
 
     # create path to store prediction result images
     os.makedirs(image_directory, exist_ok=True)

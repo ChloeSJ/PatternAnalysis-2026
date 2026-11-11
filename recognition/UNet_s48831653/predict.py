@@ -18,7 +18,7 @@ def predict(UNet=True):
 
     if UNet:
         model_path = "best_2DUnet.pth"
-        model = modules.UNet_2D(in_channels=1, num_categories=5).to(device)
+        model = modules.UNet_2D(in_channels=1, num_categories=6).to(device)
         image_directory = "UNet_predictions"
         image_name = "UNet"
         print("Evaluating 2D UNet predictions... (images stored under UNet_predictions)")
@@ -50,17 +50,19 @@ def predict(UNet=True):
     print(f"Average Testing Time = {(end_time - start_time)/len(test_loader.dataset)} per MRI slice")
     print(f"Peak VRAM during Testing = {peak_vram_gb:.4f} GB")
     print(f"    DICE VALUES...")
-    print(f"        C0 Background/Rectum: {all_channel_dice[0].item()}")
-    print(f"        C1  Body/Soft Tissue: {all_channel_dice[1].item()}")
-    print(f"        C2              Bone: {all_channel_dice[2].item()}")
-    print(f"        C3           Bladder: {all_channel_dice[3].item()}")
-    print(f"        C4          Prostate: {all_channel_dice[4].item()}")
+    print(f"        C0       Background: {all_channel_dice[0].item()}")
+    print(f"        C1 Body/Soft Tissue: {all_channel_dice[1].item()}")
+    print(f"        C2             Bone: {all_channel_dice[2].item()}")
+    print(f"        C3          Bladder: {all_channel_dice[3].item()}")
+    print(f"        C4           Rectum: {all_channel_dice[4].item()}")
+    print(f"        C5         Prostate: {all_channel_dice[5].item()}")
     print(f"    IOU VALUES...")
-    print(f"        C0 Background/Rectum: {all_channel_iou[0].item()}")
-    print(f"        C1  Body/Soft Tissue: {all_channel_iou[1].item()}")
-    print(f"        C2              Bone: {all_channel_iou[2].item()}")
-    print(f"        C3           Bladder: {all_channel_iou[3].item()}")
-    print(f"        C4          Prostate: {all_channel_iou[4].item()}\n")
+    print(f"        C0       Background: {all_channel_iou[0].item()}")
+    print(f"        C1 Body/Soft Tissue: {all_channel_iou[1].item()}")
+    print(f"        C2             Bone: {all_channel_iou[2].item()}")
+    print(f"        C3          Bladder: {all_channel_iou[3].item()}")
+    print(f"        C4           Rectum: {all_channel_iou[4].item()}")
+    print(f"        C5         Prostate: {all_channel_iou[5].item()}\n")
     return
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ test_npz_path = os.path.join(SAVE_DIR, "test.npz")
 # Returns ndarray storing one-hot encoded layers for each segmentation category
 # load_data_2D(categorical=False) produces [N, H, W]
 # load_data_2D(categorical=True) produces [N, H, W, C]
-def to_channels(arr: np.ndarray, dtype=np.uint8, num_classes=5) -> np.ndarray:
+def to_channels(arr: np.ndarray, dtype=np.uint8, num_classes=6) -> np.ndarray:
     # retrieve the sorted unique elements of flattened arr
     # corresponds to the number of segmented categories
     channels = np.unique(arr)
@@ -92,7 +92,7 @@ def load_data_2D(imageNames, normImage=False, categorical=False,
     affines = []
     num = len(imageNames)
     rows, cols = target_shape
-    num_classes = 5
+    num_classes = 6
 
     # determine image heigth x width (x channel) dimensions and construct
     # images darray to store
