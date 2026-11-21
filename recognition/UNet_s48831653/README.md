@@ -1,7 +1,11 @@
 # Evaluation of 2D U-Net vs 2D Convolutional Aggregate Network performance and resource use for the segmentation of HipMRI scans for targeted radiation therapy of the prostate
-Data were provided by HipMRI Study for image segmentation - https://arxiv.org/abs/1505.04597
+Data were provided by HipMRI Study for image segmentation - https://doi.org/10.1016/j.ijrobp.2015.08.045
 
 ## Overview of the Model
+### Model References
+- U-Net: Ronneberger, O., Fischer, P., & Brox, T. (2015). U-Net: Convolutional networks for biomedical image segmentation. arXiv (Cornell University). https://doi.org/10.48550/arxiv.1505.04597
+- CAN: Yu, F., & Koltun, V. (2015). Multi-scale context aggregation by dilated convolutions. arXiv.Org. https://doi.org/10.48550/arXiv.1511.07122
+
 A 2D U-Net and 2D convolutional aggregate network (CAN) have been implemented to aid in the segmentation of the prostate in HipMRI scans for the purpose of targeted radiation therapy. Due to the risks associated with both under- and over-contouring, it is of interest to compare the prostate segmentation accuracy and the resource requirements of both models to determine which is more appropriate for clinical use.
 
 The models can be trained by running train_and_validate(UNet, num_epochs) in train.py, inputting boolean variable 'UNet' to select which model. The model's time, Dice, Intersection Over Union, peak VRAM and number of parameters are reported. A training vs validation loss plot will be saved under "2Dmodel_loss_plot.png", and the optimal model will be saved under "best_2Dmodel.pth" where 'model' is either Unet or CAN.
@@ -36,7 +40,7 @@ This repository was trained and evaluated on the Rangpur HPC cluster with the fo
 - torchvision=0.22.1+cu118 
 - matplotlib=3.11.1 
 
-The results discussed in this report were produced without setting seed. If desired, the seeds for python, numpy and torch can be set for reproducible results.
+The results discussed in this report were produced without setting seed. Note, the results below follow the trend of the completed runs. If desired, the seeds for python, numpy and torch can be set for reproducible results.
 
 ## Data Preprocessing
 To prevent data-leakage, all MRI slices belonging to the same patient are strictly assigned to the same data split, as misleading results would be produced if the same anatomy were present across sets. Specifically, training was performed on slices from patients 4 to 35, validation on patients 36 to 39, and testing on patients 40-42.
@@ -50,12 +54,12 @@ Training and Validation is executed with train_and_validate() from train.py, wit
 
 Upon completion of all epochs, general performance values are reported. These are displayed below. Additionally, each training and validation epoch records their respective prostate channel loss per sample and average combined BCE and dice loss per channel per sample, which are graphed against epochs. These are also presented below, for each model.
 
-|**Training and Validation Performance Results**    | 2D U-Net | 2D CAN |
-| -------- | -------- | -------- |
-| Total Number of Trainable Parmeters               | 31,036,741 | 406,405  |
-| Peak Training/Validation GPU VRAM (GB)            | 3.2254     | 3.5261   |
-| Average Training/Validation Epoch Duration (s)    | 47.684     | 49.729s  |
-| Saved Model's Validation Prostate Dice            | 0.904217   | 0.906043 |
+|**Training and Validation Performance Results** | 2D U-Net   | 2D CAN     |
+| --------                                       | ---------- | ---------- |
+| Total Number of Trainable Parmeters            | 31,036,806 | 406,470    |
+| Peak Training/Validation GPU VRAM (GB)         | 3.2272     | 3.5300     |
+| Average Training/Validation Epoch Duration (s) | 48.983s    | 50.924s    |
+| Saved Model's Validation Prostate Dice         | 0.86442262 | 0.84794974 |
 
 ### Training and Validation Loss and Prostate Segmentation Dice per Epoch
 **2D UNet:**
@@ -69,69 +73,55 @@ Testing involves the evaluation of the model's prediction for each sample. These
 
 **Example prediction output image:**
 
-Mask Colour Key: *Prostate=Red, Body Outline/Rectum=Black, Bladder=Teal, Bone=Brown, Body=Green*
+Mask Colour Key: *Prostate=Yellow, Rectum=Red, Body Outline=Black, Bladder=Teal, Bone=Brown, Body=Green*
 
 Error Map Colour Key: *True Positive = Green, False Positive = Red, False Negative = Blue*
 ![alt text](Figures/prediction_image_example.png)
 
 |**Testing Performance Results**           | 2D U-Net | 2D CAN |
 | -------- | -------- | -------- |
-| Peak Testing GPU VRAM (GB)               | 1.1256     | 0.4079   |
-| Average Sample Evaluation Duration (s)   | 0.370087   | 0.367726 |
-| Average Testing Dice                     | 0.874180   | 0.878067 |
+| Peak Testing GPU VRAM (GB)               | 1.1328      | 0.4138      |
+| Average Sample Evaluation Duration (s)   | 0.37846585s | 0.37848915s |
+
+|**Dice/IoU Results**                     |2D U-Net Dice| 2D CAN Dice|2D U-Net IoU| 2D CAN IoU | 
+| --------                                 | --------   | --------   | --------   | --------   |
+| Average Testing Background Dice          | 0.97319245 | 0.97517681 | 0.94778460 | 0.95155615 |
+| Average Testing Body/Soft Tissue Dice    | 0.97836411 | 0.97835832 | 0.95764464 | 0.95763355 |
+| Average Testing Bone Dice                | 0.92803913 | 0.92811620 | 0.86573976 | 0.86587393 |
+| Average Testing Bladder Dice             | 0.95796382 | 0.96078819 | 0.91931915 | 0.92453551 |
+| Average Testing Rectum Dice              | 0.86962932 | 0.83781344 | 0.76933110 | 0.72089410 |
+| Average Testing Prostate Dice            | 0.86311150 | 0.86265260 | 0.75918740 | 0.75847768 |
 
 ## Discussion of Results
-The performance results outlined above, show comparable prostate channel dice scores during validation and testing, with a slightly larger decrease in the 2D U-Net's performance at testing. Similarly, the training times are comparable, with the U-Net being slightly faster to train and slower to evaluate.
+The performance results outlined above, show comparable prostate channel dice scores during validation and testing, with a slightly larger decrease in the 2D U-Net's performance at testing. Additionally, the U-Net training is slightly slower and the evaluation time (including image construction) is equal.
 
-The greatest difference in the models is the number of trainable parameters, which is significantly larger for the U-Net in comparison to the CAN. This likely contributes to the approximately tripled GPU VRAM peak observed during testing. Additionally, observation of the loss plots, suggests the CAN provides stabler training, in comparison to the U-Net. Specifically, the CAN appears to stabilise after epoch 4 with stable and approximately equal Dice scores. The U-Net validation loss stablises after 15 epochs, and has significant variation in prostate channel dice in comparison to the CAN plot.
+The greatest difference in the models is the number of trainable parameters, which is significantly larger for the U-Net in comparison to the CAN. This likely contributes to the approximately tripled GPU VRAM peak observed during testing. Additionally, observation of the loss plots suggests the CAN provides stabler training, in comparison to the U-Net. In particular, the CAN's prostate validation Dice has less variation and closer to the training validation.
 
 Upon inspection of the prediction results, transitions between neighbouring slices produced by the CAN are notably smoother compared to the UNet model. Regardless, both models were observed to have the following common failure cases:
 
 ### 1. Small prostate false negatives:
-Often occurs in the MRI slices where the prostate initially appears or where a new prostate segment appears separate from a pre-existing section, that combine in a later sample. Due to the small area of these segments, both the 2D U-Net and 2D CAN models, will produce false negatives. This is likely due to the similarities with neighbouring samples with almost identical anatomical structure but with no prostate segmentations. Additionally, these small prostate segmentation cases may only be reflected in the initial 2-3 slices from a scan, where the more general prostate segmentation case would have 10-15 slices to train with, and so, the model is less familiar with predicting small prostate segments. Examples of these false negative predictions are given below, where the false negative segmentations are blue in the error map.
+Prostate false negatives often occur in the MRI where the prostate initially appears as a small segmentation. This is likely due to the similarities with neighbouring samples with almost identical anatomical structure but with no prostate segmentations. Additionally, these small prostate segmentation cases may only be reflected in the initial 2-3 slices from a scan, where the more general prostate segmentation case would have 10-15 slices to train with, and so, the model is less familiar with predicting small prostate segments. An example of these false negative predictions are given below, where the false negative segmentation is blue in the error map.
 
-**Example false negative prediction of an initial small prostate segmentations:**
+**Example false positive small prostate segmentations:**
+![alt text](Figures/example_case1.png)
 
-![alt text](Figures/ex_FN_initial_segment.png)
+### 2. False positive prostate segmentation neighbouring the bladder:
+False positive prostate segmentations were observed to often occur between the prostate and the bladder, for both models. This most commonly occurred where the prostate and bladder segmentations separate, with the models predicting this separation later in the patient's set of MRI scans. This is likely due to a greater abundance of training samples with the prostate and bladder segmentations neighbouring each other and a lack of 3D spatial context, since the models are predicting these segmentations independent of the adjacent MRI slices. An example of this false positive segmentation is given below. 
 
-**Example false negative prediction of new small prostate segmentations:**
+**Example false positive prostate segmentations neighbouring the bladder:**
+![alt text](Figures/example_case2.png)
 
-![alt text](Figures/ex_FN_new_segment.png)
+### 3. False positive prostate segmentation replacing the rectum:
+False positive prostate segmentations were observed to be predicted at the ground truth rectum segmentation. This most often occurred where the rectum initially appeared, and so, likely is a result of limited samples of this case. Additionally, because the model's are independently predicting these MRI slices, they lack the 3D spatial context that indicates when this case appears compared to adjacent samples. Examples of this case are given below
 
-### 2. Small prostate false positives:
-Similarly to failure case 1, this will occur in MRI slices where the prostate is expected to initially appear, or new segments usually appear. This occurs in both the 2D U-Net and 2D CAN models, where the model will predict a small new prostate segment that is not present in the sample. This is likely due to the same reasons as described in failure case 1 above. Examples of these false positive predictions are given below, where the false positive segmentations are red in the error map.
+**Example false positive prostate segmentation, replacing the rectum:**
+![alt text](Figures/example_case3-1.png)
+![alt text](Figures/example_case3-2.png)
 
-**Example false positive prediction of new small prostate segmentations:**
+## Conclusion
+The 2D CAN is recommended over the 2D U-Net for use in segmenting the prostate in HipMRI images. In comparison to the U-Net, the CAN reported approximately equal channel dice during validation and testing. Both models had equal training time per epoch, and the VRAM requirements during evaluation are three times lower for the CAN model. The CAN was observed to produce more continuous neighbouring slice results, and noticeably stabler prostate dice during validation.
 
-![alt text](Figures/ex_FP_initial_segment.png)
-
-**Example false positive prediction of new small prostate segmentations:**
-
-![alt text](Figures/ex_FP_new_segment.png)
-
-### 3. False negatives at neighbouring rectum segmentations
-Both the 2D U-Net and 2D CAN will predict false negatives in slices where the rectum segmentation is vanishing and the prostate segmentation appears. This likely occurs as the prostate and rectum segmentations are often in the same position with similar shape, or are closely neighbouring each other. Hence, both convolution models will associate the same features with both the rectum and prostate segmentations, resulting in the false negatives often observed in the predictions. This most commonly appears as a false negative as the vanishing rectum segmentation is more gradual than the prostate segmentation appearance, and therefore has greater representation in the training set. Therefore the model will predict the rectum segmentation over the prostate, resulting in the false negative predictions that have been observed. Two example cases of this are pictured below.
-
-**Example false negative predictions of rectum segmentations:**
-
-![alt text](Figures/ex_FN_rectum1.png)
-
-![alt text](Figures/ex_FN_rectum2.png)
-
-### 4. False positives in the body segment
-Due to the similarity in appearance between the prostate and neighbouring anatomy, such as the bowels. Both models, will sometimes produce false positive prostate predictions instead of the correct body segmentation. An example of this is given below.
-
-**Example false positive prostate prediction of the body:**
-
-![alt text](Figures/ex_FP_body.png)
-
-
-## Verdict
-The 2D CAN is recommended over the 2D U-Net for use in segmenting the prostate in HipMRI images. In comparison to the U-Net, the CAN reported approximately equal channel dice during validation and testing. Additionally, both models had equal training time per epoch with the CAN required significantly less epochs, to reach stability. Finally, the VRAM requirements during evaluation are three times lower for the CAN model.
-
-These results suggest the added context introduced by dilations in the CAN, are more suitable for use in MRI segmentation. Additionally, the CAN was observed to produce more continuous neighbouring slice results. 
-
-The 2D CAN does display evidence of common failure cases, especially for the initial MRI slices involving the prostate and differentiating the prostate segmentation from the rectum. It is recommended that 3D U-Net and 3D CAN models, are implemented to determine if these failure cases can be avoided with volumetric context, and whether the increased time and memory resources are worth 
+These results suggest the added context introduced by dilations in the CAN, are more suitable for use in MRI segmentation. The 2D CAN does display evidence of common failure cases, especially for the initial MRI slices involving the prostate and differentiating the prostate segmentation from the rectum/bladder. It is recommended that 3D U-Net and 3D CAN models, are implemented to determine if these failure cases can be avoided with volumetric context, and whether the increased time and memory resources of these models are outbalanced by these results.
 
 ## Artificial Intelligence Usage Disclosure:
 Gemini used:
@@ -176,3 +166,5 @@ If the 3D U-Net segmentation model cannot be implemented, a 2D improved U-Net wi
 - Singh, A., Sharma, A., & Abdul, A. (2025). 3D u-net vs. 2D u-net for brain MRI segmentation: A comparative study on accuracy and efficiency. Journal of Basic Science and Engineering, 22(1), 487. https://doi.org/10.10399/JBSE.2025237518 
 
 - Woo, B., & Lee, M. (2021). Comparison of tissue segmentation performance between 2D u-net and 3D u-net on brain MR images. 2021 International Conference on Electronics, Information, and Communication (ICEIC), 1–4. https://ieeexplore.ieee.org/document/9369797 
+
+Note: the 3D U-Net was not implemented as discussed in the feasibility review. Instead, the 2D CAN so that the same dataloading and testing structures could be used, so that the model could be appropriately trained and analysed.
